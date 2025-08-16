@@ -23,6 +23,10 @@ class ApplyReferralHandler {
     return linkResult.fold(
       (failure) => left(failure),
       (link) async {
+        if (link == null) {
+          return left('Referral link not found');
+        }
+
         final fraudResult = await _referralService.detectFraud(
           referrerId: link.referrerId.value,
           refereeId: command.refereeId,
@@ -47,7 +51,7 @@ class ApplyReferralHandler {
           (error) => left(error),
           (updatedLink) async {
             final saveResult = await _linkRepository.save(updatedLink);
-            
+
             return saveResult.fold(
               (error) => left(error),
               (_) {

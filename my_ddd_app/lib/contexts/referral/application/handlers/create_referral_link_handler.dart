@@ -1,11 +1,16 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:my_ddd_app/shared/domain/value_objects/uuid.dart';
 import 'package:my_ddd_app/shared/domain/events/event_bus.dart';
 import '../../domain/aggregates/referral_link.dart';
 import '../../domain/repositories/referral_link_repository.dart';
 import '../../domain/repositories/referral_program_repository.dart';
+import '../../infrastructure/repositories/in_memory_referral_link_repository.dart';
+import '../../infrastructure/repositories/in_memory_referral_program_repository.dart';
 import '../../domain/events/referral_events.dart';
 import '../commands/create_referral_link_command.dart';
+
+part 'create_referral_link_handler.g.dart';
 
 class CreateReferralLinkHandler {
   final ReferralLinkRepository _linkRepository;
@@ -33,13 +38,13 @@ class CreateReferralLinkHandler {
         }
 
         if (command.customCode != null) {
-          final codeExistsResult = await _linkRepository.codeExists(
+          final codeExistsResult = await _linkRepository.findByCode(
             command.customCode!,
           );
           
           final codeExists = codeExistsResult.fold(
             (_) => false,
-            (exists) => exists,
+            (link) => link != null,
           );
           
           if (codeExists) {
@@ -47,18 +52,24 @@ class CreateReferralLinkHandler {
           }
         }
 
-        final existingLinkResult = await _linkRepository.findByReferrerAndProgram(
+        final existingLinksResult = await _linkRepository.findByReferrerId(
           Uuid.fromString(command.referrerId),
-          Uuid.fromString(command.programId),
         );
 
-        final hasExistingLink = existingLinkResult.fold(
-          (_) => false,
-          (_) => true,
+        final existingLinks = existingLinksResult.fold(
+          (_) => <ReferralLink>[],
+          (links) => links,
+        );
+
+        final hasExistingLink = existingLinks.any(
+          (link) => link.programId.value == command.programId,
         );
 
         if (hasExistingLink) {
-          return existingLinkResult;
+          final existingLink = existingLinks.firstWhere(
+            (link) => link.programId.value == command.programId,
+          );
+          return right(existingLink);
         }
 
         try {
@@ -88,4 +99,23 @@ class CreateReferralLinkHandler {
       },
     );
   }
+}
+
+@riverpod
+ReferralLinkRepository referralLinkRepository(ref) {
+  return InMemoryReferralLinkRepository();
+}
+
+@riverpod
+ReferralProgramRepository referralProgramRepository(ref) {
+  return InMemoryReferralProgramRepository();
+}
+
+@riverpod
+CreateReferralLinkHandler createReferralLinkHandler(ref) {
+  return CreateReferralLinkHandler(
+    ref.watch(referralLinkRepositoryProvider),
+    ref.watch(referralProgramRepositoryProvider),
+    ref.watch(eventBusProvider),
+  );
 }

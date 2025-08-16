@@ -23,6 +23,10 @@ class ClaimRewardHandler {
     return rewardResult.fold(
       (error) => left(error),
       (reward) async {
+        if (reward == null) {
+          return left('Reward not found');
+        }
+
         final claimResult = reward.claimReward(
           amount: RewardAmount(
             value: command.amount,
@@ -35,7 +39,7 @@ class ClaimRewardHandler {
           (error) => left(error),
           (updatedReward) async {
             final saveResult = await _rewardRepository.save(updatedReward);
-            
+
             return saveResult.fold(
               (error) => left(error),
               (_) {
