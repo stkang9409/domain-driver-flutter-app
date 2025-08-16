@@ -17,4 +17,12 @@ class Uuid {
 
   @override
   String toString() => value;
+
+  factory Uuid.fromJson(String json) {
+    return Uuid.fromString(json);
+  }
+
+  String toJson() {
+    return value;
+  }
 }
